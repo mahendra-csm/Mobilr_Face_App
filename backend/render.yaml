@@ -1,0 +1,29 @@
+services:
+  - type: web
+    name: svck-digital-backend
+    runtime: python
+    buildCommand: pip install --upgrade pip setuptools wheel cmake && pip install -r requirements.txt
+    startCommand: uvicorn server:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: ENVIRONMENT
+        value: production
+      - key: TESTING_MODE
+        value: "false"
+      - key: JWT_SECRET
+        generateValue: true
+      - key: ADMIN_EMAIL
+        sync: false
+      - key: ADMIN_PASSWORD
+        sync: false
+      - key: FIREBASE_SERVICE_ACCOUNT_JSON
+        sync: false
+      - key: ALLOWED_ORIGINS
+        sync: false
+      - key: CAMPUS_LATITUDE
+        value: "14.459705443779649"
+      - key: CAMPUS_LONGITUDE
+        value: "78.81842145279516"
+      - key: CAMPUS_RADIUS_METERS
+        value: "100"
+      - key: GROQ_API_KEY
+        sync: false

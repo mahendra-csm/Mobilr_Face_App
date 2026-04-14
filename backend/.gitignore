@@ -1,0 +1,12 @@
+.env
+firebase-service-account.json
+__pycache__/
+*.pyc
+*.pyo
+*.log
+.DS_Store
+venv/
+env/
+*.egg-info/
+dist/
+build/

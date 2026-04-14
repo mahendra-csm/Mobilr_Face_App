@@ -1,0 +1,6 @@
+INFO:     Started server process [18124]
+INFO:     Waiting for application startup.
+2026-04-08 21:46:01,525 - server - INFO - SVCK Digital Backend started with Firebase
+2026-04-08 21:46:01,526 - server - INFO - Environment=development, testing_mode=True, face_detection_model=hog, allow_credentials=True, allowed_origins=['http://localhost:8081', 'http://localhost:19006', 'exp://192.168.1.23:8081', 'http://10.189.123.129:8081', 'http://10.189.123.129:19006', 'exp://10.189.123.129:8081', 'http://10.205.204.129:8081', 'http://10.205.204.129:19006', 'exp://10.205.204.129:8081', 'exp://10.205.204.129:19000']
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
