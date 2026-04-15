@@ -173,7 +173,9 @@ export const describeApiError = (error: unknown, fallback: string) => {
       return 'The request took too long. Please retry with fewer, clearer photos or try again after the backend finishes processing.';
     }
     if (!error.response) {
-      return `Network error. Make sure your phone and laptop are on the same Wi-Fi and the backend ${BACKEND_URL} is running.`;
+      return __DEV__
+        ? `Network error. Make sure your phone and laptop are on the same Wi-Fi and the backend ${BACKEND_URL} is running.`
+        : 'Network error. Please check your internet connection and try again.';
     }
   }
   return fallback;

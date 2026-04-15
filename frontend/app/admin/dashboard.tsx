@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
   View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity,
-  RefreshControl, Alert, Modal, TextInput,
+  RefreshControl, Alert, Modal, TextInput, Platform,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -27,6 +27,7 @@ export default function AdminDashboard() {
   const [statistics, setStatistics] = useState<any>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [dateInputValue, setDateInputValue] = useState<string>(new Date().toISOString().split('T')[0]);
   const [exporting, setExporting] = useState(false);
   const [wsConnected, setWsConnected] = useState(false);
   const wsRef = useRef<WebSocket | null>(null);
@@ -47,6 +48,8 @@ export default function AdminDashboard() {
   useEffect(() => {
     let ws: WebSocket | null = null;
     let reconnectTimer: ReturnType<typeof setTimeout>;
+    let reconnectAttempts = 0;
+    const MAX_RECONNECT_ATTEMPTS = 8;
 
     const connectWs = async () => {
       try {
@@ -59,6 +62,7 @@ export default function AdminDashboard() {
 
         ws.onopen = () => {
           if (__DEV__) console.log('[WS] Connected to admin WebSocket');
+          reconnectAttempts = 0; // reset on successful connect
           setWsConnected(true);
         };
 
@@ -66,9 +70,8 @@ export default function AdminDashboard() {
           try {
             const msg = JSON.parse(event.data);
             if (msg.type === 'new_attendance') {
-              // Instantly add the new attendance record and refresh stats
               if (__DEV__) console.log('[WS] New attendance:', msg.data);
-              loadData(); // Refresh to get accurate stats
+              loadData();
             }
           } catch (e) {
             if (__DEV__) console.log('[WS] Parse error:', e);
@@ -78,8 +81,15 @@ export default function AdminDashboard() {
         ws.onclose = () => {
           setWsConnected(false);
           wsRef.current = null;
-          // Reconnect after 5 seconds
-          reconnectTimer = setTimeout(connectWs, 5000);
+          // Reconnect with back-off, stop after MAX_RECONNECT_ATTEMPTS
+          if (reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
+            reconnectAttempts += 1;
+            const delay = Math.min(5000 * reconnectAttempts, 30000);
+            if (__DEV__) console.log(`[WS] Reconnecting in ${delay}ms (attempt ${reconnectAttempts})`);
+            reconnectTimer = setTimeout(connectWs, delay);
+          } else {
+            if (__DEV__) console.log('[WS] Max reconnect attempts reached, falling back to polling only');
+          }
         };
 
         ws.onerror = () => {
@@ -95,6 +105,7 @@ export default function AdminDashboard() {
 
     return () => {
       clearTimeout(reconnectTimer);
+      reconnectAttempts = MAX_RECONNECT_ATTEMPTS; // prevent reconnect on unmount
       ws?.close();
       wsRef.current = null;
     };
@@ -204,7 +215,7 @@ ${data.all_records.map((r: any, i: number) => `
           <TouchableOpacity style={styles.dateBtn} onPress={() => changeDate(-1)}>
             <Ionicons name="chevron-back" size={20} color={COLORS.primary} />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.dateDisplay} onPress={() => setShowDatePicker(true)}>
+          <TouchableOpacity style={styles.dateDisplay} onPress={() => { setDateInputValue(selectedDate); setShowDatePicker(true); }}>
             <Ionicons name="calendar" size={18} color={COLORS.primary} />
             <Text style={styles.dateText}>{formatDateDisplay(selectedDate)}</Text>
           </TouchableOpacity>
@@ -221,7 +232,7 @@ ${data.all_records.map((r: any, i: number) => `
           <View style={styles.statsRow}>
             <View style={styles.statCard}><Ionicons name="people" size={22} color={COLORS.primary} /><Text style={styles.statNum}>{statistics.total_students}</Text><Text style={styles.statLabel}>Students</Text></View>
             <View style={styles.statCard}><Ionicons name="checkmark-circle" size={22} color={COLORS.success} /><Text style={styles.statNum}>{statistics.today_attendance}</Text><Text style={styles.statLabel}>Present</Text></View>
-            <View style={styles.statCard}><Ionicons name="analytics" size={22} color={COLORS.secondary} /><Text style={styles.statNum}>{statistics.attendance_percentage.toFixed(0)}%</Text><Text style={styles.statLabel}>Rate</Text></View>
+            <View style={styles.statCard}><Ionicons name="analytics" size={22} color={COLORS.secondary} /><Text style={styles.statNum}>{(statistics.attendance_percentage ?? 0).toFixed(0)}%</Text><Text style={styles.statLabel}>Rate</Text></View>
           </View>
         )}
 
@@ -286,15 +297,31 @@ ${data.all_records.map((r: any, i: number) => `
             <Text style={styles.modalTitle}>Select Date</Text>
             <TextInput
               style={styles.dateInput}
-              value={selectedDate}
-              onChangeText={setSelectedDate}
+              value={dateInputValue}
+              onChangeText={setDateInputValue}
               placeholder="YYYY-MM-DD"
+              keyboardType={Platform.OS === 'ios' ? 'numbers-and-punctuation' : 'numeric'}
+              maxLength={10}
             />
+            <Text style={{ fontSize: 12, color: '#999', marginBottom: 12, marginTop: -8 }}>
+              Format: YYYY-MM-DD (e.g. 2026-04-15)
+            </Text>
             <View style={styles.modalBtns}>
-              <TouchableOpacity style={styles.modalCancel} onPress={() => setShowDatePicker(false)}>
+              <TouchableOpacity style={styles.modalCancel} onPress={() => { setDateInputValue(selectedDate); setShowDatePicker(false); }}>
                 <Text style={styles.modalCancelText}>Cancel</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.modalConfirm} onPress={() => setShowDatePicker(false)}>
+              <TouchableOpacity
+                style={styles.modalConfirm}
+                onPress={() => {
+                  const isValid = /^\d{4}-\d{2}-\d{2}$/.test(dateInputValue) && !isNaN(Date.parse(dateInputValue));
+                  if (!isValid) {
+                    Alert.alert('Invalid Date', 'Please enter a valid date in YYYY-MM-DD format.');
+                    return;
+                  }
+                  setSelectedDate(dateInputValue);
+                  setShowDatePicker(false);
+                }}
+              >
                 <Text style={styles.modalConfirmText}>Apply</Text>
               </TouchableOpacity>
             </View>

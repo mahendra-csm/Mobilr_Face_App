@@ -28,7 +28,7 @@ const FACE_IMAGE_QUALITY = 0.8;
 export default function FaceRegisterScreen() {
   const router = useRouter();
   const updateFaceRegistered = useAuthStore((state) => state.updateFaceRegistered);
-  const [permission] = useCameraPermissions();
+  const [permission, requestCameraPermission] = useCameraPermissions();
   const [loading, setLoading] = useState(false);
   const [capturedImages, setCapturedImages] = useState<string[]>([]);
   const [showCamera, setShowCamera] = useState(false);
@@ -248,12 +248,20 @@ export default function FaceRegisterScreen() {
               <Text style={styles.secondaryBtnText}>Choose from Gallery</Text>
             </TouchableOpacity>
 
-            {permission?.granted && (
-              <TouchableOpacity style={styles.tertiaryBtn} onPress={() => setShowCamera(true)}>
-                <Ionicons name="videocam" size={20} color={COLORS.textSecondary} />
-                <Text style={styles.tertiaryBtnText}>Use Live Camera</Text>
-              </TouchableOpacity>
-            )}
+            <TouchableOpacity
+              style={styles.tertiaryBtn}
+              onPress={async () => {
+                if (permission?.granted) {
+                  setShowCamera(true);
+                } else {
+                  const result = await requestCameraPermission();
+                  if (result.granted) setShowCamera(true);
+                }
+              }}
+            >
+              <Ionicons name="videocam" size={20} color={COLORS.textSecondary} />
+              <Text style={styles.tertiaryBtnText}>Use Live Camera</Text>
+            </TouchableOpacity>
           </View>
         )}
 

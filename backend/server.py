@@ -765,6 +765,9 @@ async def get_student_profile(user: dict = Depends(get_current_student)):
         last_attendance = attendance_list[0]
     else:
         last_attendance = None
+    _ca = last_attendance.get("created_at") if last_attendance else None
+    if _ca is not None and not hasattr(_ca, 'isoformat'):
+        _ca = None  # discard unparseable value
     return {
         "id": getattr(student_doc, 'id', None),
         "name": student.get("name"),
@@ -775,7 +778,7 @@ async def get_student_profile(user: dict = Depends(get_current_student)):
         "year": student.get("year"),
         "college": student.get("college"),
         "face_registered": student.get("face_registered", False),
-        "last_attendance": last_attendance["created_at"].isoformat() if last_attendance and last_attendance.get("created_at") else None
+        "last_attendance": _ca.isoformat() if _ca else None
     }
 
 @api_router.put("/student/profile")
@@ -916,7 +919,7 @@ async def mark_attendance(data: AttendanceRequest, user: dict = Depends(get_curr
     
     # STEP 3: Get student info
     student_doc = await fs_get_doc(db.collection('students').document(user["id"]))
-    if not student_doc.exists:
+    if not hasattr(student_doc, 'exists') or not student_doc.exists:
         raise HTTPException(status_code=404, detail="Student not found")
     
     student = student_doc.to_dict()
@@ -1118,8 +1121,8 @@ async def get_students(
             "face_registered": s_dict.get("face_registered", False)
         })
     
-    # Sort by roll_number
-    result.sort(key=lambda x: x["roll_number"])
+    # Sort by roll_number (safe against None values)
+    result.sort(key=lambda x: x.get("roll_number") or "")
     
     return result
 
@@ -1145,8 +1148,9 @@ async def delete_student(student_id: str, user: dict = Depends(get_current_admin
     await fs_delete_doc(student_ref)
 
     # Delete Firebase auth user (ignore if already removed)
+    # Run in threadpool so we don't block the async event loop
     try:
-        firebase_auth.delete_user(student_id)
+        await run_in_threadpool(firebase_auth.delete_user, student_id)
     except firebase_auth.UserNotFoundError:
         pass
     except Exception as e:

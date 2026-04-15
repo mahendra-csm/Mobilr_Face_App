@@ -137,7 +137,10 @@ export default function StudentAuthScreen() {
       }
 
       const token = await firebaseAuth.getIdToken();
-      await setAuth(token || '', res.data.student, 'student');
+      if (!token) {
+        throw new Error('Authentication succeeded but token was empty. Please try logging in.');
+      }
+      await setAuth(token, res.data.student, 'student');
       router.replace('/face-register');
     } catch (e: any) {
       // Auto-retry once on pure network errors
